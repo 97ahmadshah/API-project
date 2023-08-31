@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const { environment } = require('./config');
 const routes = require('./routes')
+const { ValidationError } = require('sequelize');
 
 
 const isProduction = environment === 'production';
@@ -36,7 +37,10 @@ app.use(
     })
 );
 
+
 app.use(routes);
+
+
 
 
 module.exports = app;
