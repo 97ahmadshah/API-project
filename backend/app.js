@@ -10,8 +10,10 @@ const routes = require('./routes')
 const { ValidationError } = require('sequelize');
 
 
+
 const isProduction = environment === 'production';
 const app = express();
+// app.use(routes);
 
 app.use(morgan('dev'));
 app.use(cookieParser());
