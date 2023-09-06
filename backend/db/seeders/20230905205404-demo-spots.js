@@ -35,6 +35,18 @@ module.exports = {
         description: 'Spacious apartment',
         price: 150.00,
       },
+      {
+        ownerId: 3,
+        address: '400 Post St',
+        city: 'Big City',
+        state: 'NY',
+        country: 'USA',
+        lat: 92.98765,
+        lng: -44.43210,
+        name: 'Sample Spot 3',
+        description: 'Spacious house',
+        price: 200.00,
+      }
     ], { validate: true });
   },
 
