@@ -14,19 +14,19 @@ module.exports = {
       {
         spotId: 1,
         userId: 1,
-        review: "This place is fuego",
+        review: "Place is fuego",
         stars: 5,
       },
       {
         spotId: 2,
         userId: 2,
-        review: "This place is aighttt",
+        review: "Place is aighttt",
         stars: 3,
       },
       {
         spotId: 3,
         userId: 3,
-        review: "What in God's green earth",
+        review: "This place is not it",
         stars: 4,
       }
     ], { validate: true })

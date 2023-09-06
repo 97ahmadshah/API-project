@@ -51,10 +51,7 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    options.tableName = 'Spots';
-    const Op = Sequelize.Op;
-    return queryInterface.bulkDelete(options, {
-      name: { [Op.in]: ['Sample Spot 1', 'Sample Spot 2'] }
-    }, {});
+    options.tableName = "Spots";
+    return queryInterface.dropTable(options);
   }
 };
