@@ -1,5 +1,6 @@
 'use strict';
 
+const { urlencoded } = require('express');
 const { Spot } = require('../models');
 
 let options = {};
@@ -22,6 +23,8 @@ module.exports = {
         name: 'Sample Spot 1',
         description: 'A cozy place to stay',
         price: 100.00,
+        previewImage: 'fakeurl.com',
+        avgRating: 1
       },
       {
         ownerId: 2,
@@ -34,6 +37,8 @@ module.exports = {
         name: 'Sample Spot 2',
         description: 'Spacious apartment',
         price: 150.00,
+        previewImage: 'fakeurltwo.com',
+        avgRating: 2
       },
       {
         ownerId: 3,
@@ -46,6 +51,8 @@ module.exports = {
         name: 'Sample Spot 3',
         description: 'Spacious house',
         price: 200.00,
+        previewImage: 'fakeurlthree.com',
+        avgRating: 3
       }
     ], { validate: true });
   },
