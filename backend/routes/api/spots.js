@@ -19,7 +19,6 @@ router.get('/', async (req, res) => {
             }
         ]
     })
-    console.log(getSpots)
     res.json(getSpots)
 })
 
