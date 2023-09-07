@@ -4,6 +4,7 @@ const { Review, User, Spot, ReviewImage, sequelize } = require('../../db/models'
 const { requireAuth } = require('../../utils/auth');
 const { route } = require('./reviews');
 const { validationResult } = require('express-validator')
+const maxImageCount = 10;
 
 // ADD AN IMAGE TO A REVIEW BASED ON THE REVIEW'S ID -----------------------------------------------------------------------------------------------------------
 

@@ -166,9 +166,7 @@ router.get('/current', requireAuth, async (req, res) => {
 
 router.get('/:id', requireAuth, async (req, res) => {
     try {
-        // grabs the spotId from req.params
         const spotId = req.params.id;
-        // finds the spot by the ID
         const spot = await Spot.findOne({
             where: { id: spotId },
             include: [
@@ -189,11 +187,9 @@ router.get('/:id', requireAuth, async (req, res) => {
                 },
             ],
         });
-        // checking if the spot exists, if not, error 404 please
-        if (!spot) {
+        if (!spot || !spot.id) {
             return res.status(404).json({ message: 'Spot not found' });
         }
-        // just constructing the required response
         const response = {
             id: spot.id,
             ownerId: spot.ownerId,
@@ -213,7 +209,6 @@ router.get('/:id', requireAuth, async (req, res) => {
             SpotImages: spot.SpotImages || [],
             Owner: spot.Owner || {},
         };
-        // finally respond with the details of the asked for spot
         res.status(200).json(response);
     } catch (error) {
         console.error(error);
@@ -487,13 +482,15 @@ router.get('/:id/bookings', requireAuth, async (req, res) => {
         const { id: spotId } = req.params;
         const currentUserId = req.user.id;
 
-        // do the check we been doing
+        // Find the spot
         const spot = await Spot.findByPk(spotId);
         if (!spot) {
-            return res.status(404).json({ message: 'Spot not found' });
+            return res.status(404).json({ message: "Spot couldn't be found" });
         }
-        // is current user the owner??
+
+        // Check if the current user is the owner
         const isOwner = spot.ownerId === currentUserId;
+
         // Find bookings for the specified spot
         const bookings = await Booking.findAll({
             where: { spotId },
@@ -505,24 +502,37 @@ router.get('/:id/bookings', requireAuth, async (req, res) => {
                 ? ['id', 'spotId', 'userId', 'startDate', 'endDate', 'createdAt', 'updatedAt']
                 : ['spotId', 'startDate', 'endDate'],
         });
-        // just formatting so i don't get fined
-        const formattedResponse = {
-            Bookings: bookings.map((booking) => ({
-                User: {
+
+        // Formatting the response
+        const formattedBookings = bookings.map((booking) => {
+            const formattedBooking = {
+                spotId: booking.spotId,
+                startDate: booking.startDate.toISOString().split('T')[0],
+                endDate: booking.endDate.toISOString().split('T')[0],
+            };
+
+            if (isOwner) {
+                formattedBooking.User = {
                     id: booking.User.id,
                     firstName: booking.User.firstName,
                     lastName: booking.User.lastName,
-                },
-                id: booking.id,
-                spotId: booking.spotId,
-                userId: booking.userId,
-                startDate: booking.startDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
-                endDate: booking.endDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
-                createdAt: booking.createdAt.toISOString(),
-                updatedAt: booking.updatedAt.toISOString(),
-            })),
-        };
-        res.status(200).json(formattedResponse);
+                };
+                formattedBooking.id = booking.id;
+                formattedBooking.userId = booking.userId;
+                formattedBooking.createdAt = booking.createdAt.toISOString();
+                formattedBooking.updatedAt = booking.updatedAt.toISOString();
+            }
+
+            return formattedBooking;
+        });
+
+        // Construct the response based on owner status
+        const responseBody = isOwner
+            ? { Bookings: formattedBookings }
+            : { Bookings: formattedBookings.map((booking) => ({ spotId: booking.spotId, startDate: booking.startDate, endDate: booking.endDate })) };
+
+        // Sending the response
+        res.status(200).json(responseBody);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Internal Server Error' });
