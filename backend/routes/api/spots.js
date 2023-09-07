@@ -354,5 +354,75 @@ router.post('/:id/reviews', requireAuth, async (req, res) => {
     }
 });
 
+// GET ALL REVIEWS BY A SPOT'S ID
+
+router.get('/:id/reviews', async (req, res) => {
+    try {
+        const spotId = req.params.id;
+
+        // does your spot even exist
+        const spot = await Spot.findOne({
+            where: { id: spotId },
+        });
+
+        // if you're lying, 404
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+
+        // just grabbing all the reviews that are associated with the spot + data
+        const spotReviews = await Review.findAll({
+            where: {
+                spotId,
+            },
+            include: [
+                {
+                    model: User,
+                    attributes: ['id', 'firstName', 'lastName'],
+                },
+                {
+                    model: ReviewImage,
+                    attributes: ['id', 'url'],
+                },
+            ],
+            attributes: [
+                'id',
+                'userId',
+                'spotId',
+                'review',
+                'stars',
+                'createdAt',
+                'updatedAt',
+            ],
+        });
+
+        // here i am formatting how the req.body is expected
+        const formattedResponse = {
+            Reviews: spotReviews.map((review) => ({
+                id: review.id,
+                userId: review.userId,
+                spotId: review.spotId,
+                review: review.review,
+                stars: review.stars,
+                createdAt: review.createdAt,
+                updatedAt: review.updatedAt,
+                User: {
+                    id: review.User.id,
+                    firstName: review.User.firstName,
+                    lastName: review.User.lastName,
+                },
+                ReviewImages: (review.ReviewImages || []).map((image) => ({
+                    id: image.id,
+                    url: image.url,
+                })),
+            })),
+        };
+        res.status(200).json(formattedResponse);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
 
 module.exports = router;

@@ -3,45 +3,46 @@ const router = express.Router();
 const { Review, User, Spot, ReviewImage, sequelize } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
 const { route } = require('./reviews');
+const { validationResult } = require('express-validator')
 
 // ADD AN IMAGE TO A REVIEW BASED ON THE REVIEW'S ID -----------------------------------------------------------------------------------------------------------
 
 router.post('/:id/images', requireAuth, async (req, res) => {
     try {
-        // Get the review id from the route's parameter
+        // do the roar, make him do the roar daddy
         const reviewId = req.params.id;
 
-        // Find the review by the id
+        // finding review by reviewId
         const review = await Review.findOne({
             where: { id: reviewId },
         });
 
-        // Return 404 if the review does not exist
+        // if we can't find ya god damn review, we handle it
         if (!review) {
             return res.status(404).json({ message: 'Review not found' });
         }
 
-        // Check if the authenticated user is the owner of the review
+        // just checks if you're actually the owner
         if (req.user.id !== review.userId) {
             return res.status(403).json({ message: 'Not authorized to add an image to this review' });
         }
 
-        // Check if the maximum number of images has been added for the review
+        // maximum number requirement !!!
         const imageCount = await ReviewImage.count({ where: { reviewId } });
         if (imageCount >= maxImageCount) {
             return res.status(403).json({ message: 'Maximum number of images reached for this review' });
         }
 
-        // Extract the image data from the request body
+        // extract image data from req.body
         const { url } = req.body;
 
-        // Create a new image in the database for the review
+        // new image time baby
         const newImage = await ReviewImage.create({
             reviewId: review.id,
             url,
         });
 
-        // Return the id and url of the newly created image
+        // now we gonna need that information
         res.status(201).json({
             id: newImage.id,
             url: newImage.url,
@@ -58,18 +59,18 @@ router.get('/current', requireAuth, async (req, res) => {
     try {
         const currentUserId = req.user.id;
 
-        // Retrieve reviews written by the current user and include associated data
+        // get all the god dang reviews written by the user/include its data
         const userReviews = await Review.findAll({
             where: {
                 userId: currentUserId,
             },
             include: [
                 {
-                    model: User, // Include User data
+                    model: User,
                     attributes: ['id', 'firstName', 'lastName'],
                 },
                 {
-                    model: Spot, // Include Spot data
+                    model: Spot,
                     attributes: [
                         'id',
                         'ownerId',
@@ -81,16 +82,11 @@ router.get('/current', requireAuth, async (req, res) => {
                         'lng',
                         'name',
                         'price',
-                    ],
-                    include: [
-                        {
-                            model: ReviewImage, // Include ReviewImages
-                            attributes: ['id', 'url'],
-                        },
+                        'previewImage', // Include previewImage directly
                     ],
                 },
                 {
-                    model: ReviewImage, // Include ReviewImages
+                    model: ReviewImage,
                     attributes: ['id', 'url'],
                 },
             ],
@@ -105,7 +101,7 @@ router.get('/current', requireAuth, async (req, res) => {
             ],
         });
 
-        // Format the response as per the specified structure
+        // this si just formatting the way the api docs wanted it to be returned in the req.body
         const formattedResponse = {
             Reviews: userReviews.map((review) => ({
                 id: review.id,
@@ -131,16 +127,16 @@ router.get('/current', requireAuth, async (req, res) => {
                     lng: review.Spot.lng,
                     name: review.Spot.name,
                     price: review.Spot.price,
-                    previewImage: review.Spot.ReviewImages[0]?.url || null,
+                    previewImage: review.Spot.previewImage || null,
                 },
-                ReviewImages: review.ReviewImages.map((image) => ({
+                ReviewImages: (review.ReviewImages || []).map((image) => ({
                     id: image.id,
                     url: image.url,
                 })),
             })),
         };
 
-        // Return the formatted response
+        // finally finally we return
         res.status(200).json(formattedResponse);
     } catch (error) {
         console.error(error);
@@ -148,6 +144,80 @@ router.get('/current', requireAuth, async (req, res) => {
     }
 });
 
-//
+// EDIT A REVIEW -----------------------------------------------------------------------------------------------------------
+
+router.put('/:id', requireAuth, async (req, res) => {
+    try {
+        const { review, stars } = req.body;
+        const currentUserId = req.user.id;
+        const reviewId = req.params.id;
+
+        // do the checkity check
+        const existingReview = await Review.findOne({
+            where: {
+                id: reviewId,
+                userId: currentUserId, // Check if the current user is the owner
+            },
+        });
+
+        // 404 if non existent
+        if (!existingReview) {
+            return res.status(404).json({ message: 'Review not found' });
+        }
+
+        // making sure the request body is validated
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        // updates
+        await existingReview.update({
+            review,
+            stars,
+        });
+
+        // gets the review after updating
+        const updatedReview = await Review.findOne({
+            where: { id: reviewId },
+            attributes: [
+                'id',
+                'userId',
+                'spotId',
+                'review',
+                'stars',
+                'createdAt',
+                'updatedAt',
+            ],
+        });
+        res.status(200).json(updatedReview);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+// DELETE A REVIEW -------------------------------------------------------------------------
+
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const currentUserId = req.user.id;
+        const reviewId = req.params.id;
+        const existingReview = await Review.findOne({
+            where: {
+                id: reviewId,
+                userId: currentUserId,
+            },
+        });
+        if (!existingReview) {
+            return res.status(404).json({ message: 'Review not found' });
+        }
+        await existingReview.destroy();
+        res.status(200).json({ message: 'Review deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
 
 module.exports = router;
