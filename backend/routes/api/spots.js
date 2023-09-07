@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Spot, Review, User, SpotImage, Booking, ReviewImage, sequelize } = require('../../db/models');
+const { Spot, Review, User, SpotImage, Booking, ReviewImage, sequelize, Sequelize } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
 const { route } = require('./spots');
 
@@ -424,5 +424,113 @@ router.get('/:id/reviews', async (req, res) => {
     }
 });
 
+// CREATE A BOOKING FROM A SPOT BASED ON THE SPOT'S ID
+
+router.post('/:id/bookings', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params; // Change this to id
+        const { startDate, endDate } = req.body;
+        const currentUserId = req.user.id;
+
+        // do the checkity check
+        const spot = await Spot.findByPk(id);
+
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+
+        // do you own this spot?? if not error
+        if (spot.ownerId === currentUserId) {
+            return res.status(403).json({ message: 'You cannot book your own spot' });
+        }
+
+        // just checking to see if the booking already exists on the given dates
+        const existingBooking = await Booking.findOne({
+            where: {
+                spotId: id,
+                startDate: {
+                    [Sequelize.Op.lte]: endDate,
+                },
+                endDate: {
+                    [Sequelize.Op.gte]: startDate,
+                },
+            },
+        });
+
+        if (existingBooking) {
+            return res.status(403).json({ message: 'A booking already exists for these dates' });
+        }
+
+        // create a new booking
+        const newBooking = await Booking.create({
+            spotId: id, // Use id instead of spotId
+            userId: currentUserId,
+            startDate,
+            endDate,
+        });
+
+        res.status(201).json({
+            id: newBooking.id,
+            userId: newBooking.userId,
+            spotId: newBooking.spotId,
+            startDate: newBooking.startDate,
+            endDate: newBooking.endDate,
+            createdAt: newBooking.createdAt,
+            updatedAt: newBooking.updatedAt,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+// GET ALL BOOKINGS FOR A SPOT BASED ON THE SPOT'S ID
+
+router.get('/:id/bookings', requireAuth, async (req, res) => {
+    try {
+        const { id: spotId } = req.params;
+        const currentUserId = req.user.id;
+
+        // do the check we been doing
+        const spot = await Spot.findByPk(spotId);
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+        // is current user the owner??
+        const isOwner = spot.ownerId === currentUserId;
+        // Find bookings for the specified spot
+        const bookings = await Booking.findAll({
+            where: { spotId },
+            include: {
+                model: User,
+                attributes: ['id', 'firstName', 'lastName'],
+            },
+            attributes: isOwner
+                ? ['id', 'spotId', 'userId', 'startDate', 'endDate', 'createdAt', 'updatedAt']
+                : ['spotId', 'startDate', 'endDate'],
+        });
+        // just formatting so i don't get fined
+        const formattedResponse = {
+            Bookings: bookings.map((booking) => ({
+                User: {
+                    id: booking.User.id,
+                    firstName: booking.User.firstName,
+                    lastName: booking.User.lastName,
+                },
+                id: booking.id,
+                spotId: booking.spotId,
+                userId: booking.userId,
+                startDate: booking.startDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
+                endDate: booking.endDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
+                createdAt: booking.createdAt.toISOString(),
+                updatedAt: booking.updatedAt.toISOString(),
+            })),
+        };
+        res.status(200).json(formattedResponse);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
 
 module.exports = router;
