@@ -3,6 +3,8 @@ const router = express.Router();
 const { Booking, User, Spot, sequelize, Sequelize } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
 const { route } = require('./bookings');
+const Op = Sequelize.Op;
+
 
 // GET ALL OF THE CURRENT USER'S BOOKINGS ----------------------------------------------------------------------------------------------------------
 
@@ -74,65 +76,69 @@ router.get('/current', requireAuth, async (req, res) => {
     }
 });
 
-// EDIT A BOOKING
+// EDIT A BOOKING ----------------------------------------------------------------------------------------------------------
 
 router.put('/:id', requireAuth, async (req, res) => {
     try {
         const { id: bookingId } = req.params;
         const { startDate, endDate } = req.body;
         const currentUserId = req.user.id;
-
-        // Find the booking to be edited
+        // find the booking we need to work on
         const booking = await Booking.findByPk(bookingId, {
             include: Spot, // Include the Spot model
         });
-
-        // Check if the booking exists
+        // does the booking even exist?
         if (!booking) {
             return res.status(404).json({ message: 'Booking not found' });
         }
-
-        // Check if the current user is the owner of the booking
+        // and are you really the owner??
         if (booking.userId !== currentUserId) {
             return res.status(403).json({ message: 'Not authorized to edit this booking' });
         }
-
-        // Check if a booking already exists for the spot on the specified dates
+        // validation checkers/date checkers
+        const currentDate = new Date();
+        if (booking.endDate <= currentDate) {
+            return res.status(400).json({ message: "Can't edit past bookings" });
+        }
         const existingBooking = await Booking.findOne({
             where: {
-                spotId: booking.Spot.id, // Access the spot's id property
-                startDate: {
-                    [sequelize.Op.lte]: endDate,
-                },
-                endDate: {
-                    [sequelize.Op.gte]: startDate,
-                },
                 id: {
-                    [sequelize.Op.not]: bookingId,
+                    [Op.not]: bookingId,
                 },
+                [Op.and]: [
+                    {
+                        spotId: booking.Spot ? booking.Spot.id : null,
+                    },
+                    {
+                        startDate: {
+                            [Op.lte]: endDate,
+                        },
+                    },
+                    {
+                        endDate: {
+                            [Op.gte]: startDate,
+                        },
+                    },
+                ],
             },
         });
 
         if (existingBooking) {
             return res.status(403).json({ message: 'A booking already exists for these dates' });
         }
-
-        // Update the booking
         booking.startDate = startDate;
         booking.endDate = endDate;
         await booking.save();
-
-        // Format the response
+        // format format
         const formattedResponse = {
             id: booking.id,
             userId: booking.userId,
-            spotId: booking.Spot.id, // Access the spot's id property
-            startDate: booking.startDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
-            endDate: booking.endDate.toISOString().split('T')[0], // Format date as 'yyyy-mm-dd'
+            spotId: booking.Spot ? booking.Spot.id : null,
+            startDate: booking.startDate.toISOString().split('T')[0],
+            endDate: booking.endDate.toISOString().split('T')[0],
             createdAt: booking.createdAt.toISOString(),
             updatedAt: booking.updatedAt.toISOString(),
         };
-
         res.status(200).json(formattedResponse);
     } catch (error) {
         console.error(error);
@@ -140,7 +146,8 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
 });
 
-// DELETE A BOOKING
+
+// DELETE A BOOKING ----------------------------------------------------------------------------------------------------------
 
 router.delete('/:id', requireAuth, async (req, res) => {
     try {

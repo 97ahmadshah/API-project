@@ -11,37 +11,30 @@ router.post('/:id/images', requireAuth, async (req, res) => {
     try {
         // do the roar, make him do the roar daddy
         const reviewId = req.params.id;
-
         // finding review by reviewId
         const review = await Review.findOne({
             where: { id: reviewId },
         });
-
         // if we can't find ya god damn review, we handle it
         if (!review) {
             return res.status(404).json({ message: 'Review not found' });
         }
-
         // just checks if you're actually the owner
         if (req.user.id !== review.userId) {
             return res.status(403).json({ message: 'Not authorized to add an image to this review' });
         }
-
         // maximum number requirement !!!
         const imageCount = await ReviewImage.count({ where: { reviewId } });
         if (imageCount >= maxImageCount) {
             return res.status(403).json({ message: 'Maximum number of images reached for this review' });
         }
-
         // extract image data from req.body
         const { url } = req.body;
-
         // new image time baby
         const newImage = await ReviewImage.create({
             reviewId: review.id,
             url,
         });
-
         // now we gonna need that information
         res.status(201).json({
             id: newImage.id,
@@ -58,7 +51,6 @@ router.post('/:id/images', requireAuth, async (req, res) => {
 router.get('/current', requireAuth, async (req, res) => {
     try {
         const currentUserId = req.user.id;
-
         // get all the god dang reviews written by the user/include its data
         const userReviews = await Review.findAll({
             where: {
@@ -100,7 +92,6 @@ router.get('/current', requireAuth, async (req, res) => {
                 'updatedAt',
             ],
         });
-
         // this si just formatting the way the api docs wanted it to be returned in the req.body
         const formattedResponse = {
             Reviews: userReviews.map((review) => ({
@@ -135,7 +126,6 @@ router.get('/current', requireAuth, async (req, res) => {
                 })),
             })),
         };
-
         // finally finally we return
         res.status(200).json(formattedResponse);
     } catch (error) {
@@ -151,7 +141,6 @@ router.put('/:id', requireAuth, async (req, res) => {
         const { review, stars } = req.body;
         const currentUserId = req.user.id;
         const reviewId = req.params.id;
-
         // do the checkity check
         const existingReview = await Review.findOne({
             where: {
@@ -159,24 +148,20 @@ router.put('/:id', requireAuth, async (req, res) => {
                 userId: currentUserId, // Check if the current user is the owner
             },
         });
-
         // 404 if non existent
         if (!existingReview) {
             return res.status(404).json({ message: 'Review not found' });
         }
-
         // making sure the request body is validated
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
-
         // updates
         await existingReview.update({
             review,
             stars,
         });
-
         // gets the review after updating
         const updatedReview = await Review.findOne({
             where: { id: reviewId },
@@ -197,7 +182,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
 });
 
-// DELETE A REVIEW -------------------------------------------------------------------------
+// DELETE A REVIEW --------------------------------------------------------------------------------------------------------------------------------------------------
 
 router.delete('/:id', requireAuth, async (req, res) => {
     try {
