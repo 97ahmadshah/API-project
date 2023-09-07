@@ -60,7 +60,6 @@ router.post('/', requireAuth, async (req, res) => {
 
 router.post('/:id/images', requireAuth, async (req, res) => {
     try {
-        // Now, you can access req.user here because the middleware sets it
         const userId = req.user.id;
         // Get spot id from route's parameter
         const spotId = req.params.id;
@@ -354,7 +353,6 @@ router.post('/:id/reviews', requireAuth, async (req, res) => {
         res.status(500).json({ message: 'Internal Server Error' });
     }
 });
-
 
 
 module.exports = router;
