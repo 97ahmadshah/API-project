@@ -200,7 +200,7 @@ router.get('/:id', requireAuth, async (req, res) => {
         res.status(200).json(response);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Hitting catch block' });
+        res.status(500).json({ message: error });
     }
 });
 
