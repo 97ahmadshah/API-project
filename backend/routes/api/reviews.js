@@ -52,7 +52,8 @@ router.post('/:id/images', requireAuth, async (req, res) => {
 router.get('/current', requireAuth, async (req, res) => {
     try {
         const currentUserId = req.user.id;
-        // get all the god dang reviews written by the user/include its data
+
+        // Get all the reviews written by the user, including their data and associated images
         const userReviews = await Review.findAll({
             where: {
                 userId: currentUserId,
@@ -93,7 +94,8 @@ router.get('/current', requireAuth, async (req, res) => {
                 'updatedAt',
             ],
         });
-        // this si just formatting the way the api docs wanted it to be returned in the req.body
+
+        // This is just formatting the way the API docs wanted it to be returned in the req.body
         const formattedResponse = {
             Reviews: userReviews.map((review) => ({
                 id: review.id,
@@ -127,7 +129,8 @@ router.get('/current', requireAuth, async (req, res) => {
                 })),
             })),
         };
-        // finally finally we return
+
+        // Finally, return the formatted response
         res.status(200).json(formattedResponse);
     } catch (error) {
         console.error(error);
