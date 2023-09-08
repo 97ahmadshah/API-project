@@ -5,7 +5,7 @@ Require Authentication: true
 
 Request
 Method: GET
-URL: /user/reviews
+URL: /current
 Body: none
 
 Successful Response
@@ -326,4 +326,3 @@ Body:
 }
 
 #####################################################################################
-
