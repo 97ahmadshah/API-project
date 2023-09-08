@@ -355,6 +355,190 @@ router.post('/:id/reviews', requireAuth, async (req, res) => {
     }
 });
 
+// GET ALL REVIEWS BY A SPOT'S ID
+
+router.get('/:id/reviews', async (req, res) => {
+    try {
+        const spotId = req.params.id;
+        // does your spot even exist
+        const spot = await Spot.findOne({
+            where: { id: spotId },
+        });
+        // if you're lying, 404
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+        // just grabbing all the reviews that are associated with the spot + data
+        const spotReviews = await Review.findAll({
+            where: {
+                spotId,
+            },
+            include: [
+                {
+                    model: User,
+                    attributes: ['id', 'firstName', 'lastName'],
+                },
+                {
+                    model: ReviewImage,
+                    attributes: ['id', 'url'],
+                },
+            ],
+            attributes: [
+                'id',
+                'userId',
+                'spotId',
+                'review',
+                'stars',
+                'createdAt',
+                'updatedAt',
+            ],
+        });
+        // here i am formatting how the req.body is expected
+        const formattedResponse = {
+            Reviews: spotReviews.map((review) => ({
+                id: review.id,
+                userId: review.userId,
+                spotId: review.spotId,
+                review: review.review,
+                stars: review.stars,
+                createdAt: review.createdAt,
+                updatedAt: review.updatedAt,
+                User: {
+                    id: review.User.id,
+                    firstName: review.User.firstName,
+                    lastName: review.User.lastName,
+                },
+                ReviewImages: (review.ReviewImages || []).map((image) => ({
+                    id: image.id,
+                    url: image.url,
+                })),
+            })),
+        };
+        res.status(200).json(formattedResponse);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+// CREATE A BOOKING FROM A SPOT BASED ON THE SPOT'S ID
+
+router.post('/:id/bookings', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params; // Change this to id
+        const { startDate, endDate } = req.body;
+        const currentUserId = req.user.id;
+        // do the checkity check
+        const spot = await Spot.findByPk(id);
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+        // do you own this spot?? if not error
+        if (spot.ownerId === currentUserId) {
+            return res.status(403).json({ message: 'You cannot book your own spot' });
+        }
+        // just checking to see if the booking already exists on the given dates
+        const existingBooking = await Booking.findOne({
+            where: {
+                spotId: id,
+                startDate: {
+                    [Sequelize.Op.lte]: endDate,
+                },
+                endDate: {
+                    [Sequelize.Op.gte]: startDate,
+                },
+            },
+        });
+        if (existingBooking) {
+            return res.status(403).json({ message: 'A booking already exists for these dates' });
+        }
+        // create a new booking
+        const newBooking = await Booking.create({
+            spotId: id, // Use id instead of spotId
+            userId: currentUserId,
+            startDate,
+            endDate,
+        });
+        res.status(201).json({
+            id: newBooking.id,
+            userId: newBooking.userId,
+            spotId: newBooking.spotId,
+            startDate: newBooking.startDate,
+            endDate: newBooking.endDate,
+            createdAt: newBooking.createdAt,
+            updatedAt: newBooking.updatedAt,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+// GET ALL BOOKINGS FOR A SPOT BASED ON THE SPOT'S ID
+
+router.get('/:id/bookings', requireAuth, async (req, res) => {
+    try {
+        const { id: spotId } = req.params;
+        const currentUserId = req.user.id;
+
+        // Find the spot
+        const spot = await Spot.findByPk(spotId);
+        if (!spot) {
+            return res.status(404).json({ message: "Spot couldn't be found" });
+        }
+
+        // Check if the current user is the owner
+        const isOwner = spot.ownerId === currentUserId;
+
+        // Find bookings for the specified spot
+        const bookings = await Booking.findAll({
+            where: { spotId },
+            include: {
+                model: User,
+                attributes: ['id', 'firstName', 'lastName'],
+            },
+            attributes: isOwner
+                ? ['id', 'spotId', 'userId', 'startDate', 'endDate', 'createdAt', 'updatedAt']
+                : ['spotId', 'startDate', 'endDate'],
+        });
+
+        // Formatting the response
+        const formattedBookings = bookings.map((booking) => {
+            const formattedBooking = {
+                spotId: booking.spotId,
+                startDate: booking.startDate.toISOString().split('T')[0],
+                endDate: booking.endDate.toISOString().split('T')[0],
+            };
+
+            if (isOwner) {
+                formattedBooking.User = {
+                    id: booking.User.id,
+                    firstName: booking.User.firstName,
+                    lastName: booking.User.lastName,
+                };
+                formattedBooking.id = booking.id;
+                formattedBooking.userId = booking.userId;
+                formattedBooking.createdAt = booking.createdAt.toISOString();
+                formattedBooking.updatedAt = booking.updatedAt.toISOString();
+            }
+
+            return formattedBooking;
+        });
+
+        // Construct the response based on owner status
+        const responseBody = isOwner
+            ? { Bookings: formattedBookings }
+            : { Bookings: formattedBookings.map((booking) => ({ spotId: booking.spotId, startDate: booking.startDate, endDate: booking.endDate })) };
+
+        // Sending the response
+        res.status(200).json(responseBody);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+
 
 
 module.exports = router;
