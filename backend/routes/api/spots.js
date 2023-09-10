@@ -294,49 +294,32 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
 router.post('/:id/reviews', requireAuth, async (req, res) => {
     try {
-        // Get spot id
         const spotId = req.params.id;
-
-        // Check if the spot with the spotId exists
         const spot = await Spot.findOne({
             where: { id: spotId },
         });
-
-        // Return 404 if spot doesn't exist
         if (!spot) {
             return res.status(404).json({ message: 'Spot not found in the database' });
         }
-
-        // Check if the user has already reviewed this spot before
         const existingReview = await Review.findOne({
             where: {
                 spotId: spot.id,
                 userId: req.user.id,
             }
         });
-
-        // If a review already exists, return a 403 error
         if (existingReview) {
             return res.status(403).json({ message: 'This spot has already been reviewed by you' });
         }
-
-        // Get review and stars from the request body
         const { review, stars } = req.body;
-
-        // Ensure necessary inputs are not null
         if (!review || !stars) {
             return res.status(400).json({ message: 'Please provide both review and stars' });
         }
-
-        // Create a new review
         const newReview = await Review.create({
             userId: req.user.id,
             spotId: spot.id,
             review,
             stars
         });
-
-        // Construct JSON response with new review info
         const response = {
             id: newReview.id,
             userId: newReview.userId,
@@ -346,8 +329,6 @@ router.post('/:id/reviews', requireAuth, async (req, res) => {
             createdAt: newReview.createdAt,
             updatedAt: newReview.updatedAt,
         };
-
-        // Respond with the newly created review
         res.status(201).json(response);
     } catch (error) {
         console.error(error);
@@ -480,17 +461,11 @@ router.get('/:id/bookings', requireAuth, async (req, res) => {
     try {
         const { id: spotId } = req.params;
         const currentUserId = req.user.id;
-
-        // Find the spot
         const spot = await Spot.findByPk(spotId);
         if (!spot) {
             return res.status(404).json({ message: "Spot couldn't be found" });
         }
-
-        // Check if the current user is the owner
         const isOwner = spot.ownerId === currentUserId;
-
-        // Find bookings for the specified spot
         const bookings = await Booking.findAll({
             where: { spotId },
             include: {
@@ -501,15 +476,12 @@ router.get('/:id/bookings', requireAuth, async (req, res) => {
                 ? ['id', 'spotId', 'userId', 'startDate', 'endDate', 'createdAt', 'updatedAt']
                 : ['spotId', 'startDate', 'endDate'],
         });
-
-        // Formatting the response
         const formattedBookings = bookings.map((booking) => {
             const formattedBooking = {
                 spotId: booking.spotId,
                 startDate: booking.startDate.toISOString().split('T')[0],
                 endDate: booking.endDate.toISOString().split('T')[0],
             };
-
             if (isOwner) {
                 formattedBooking.User = {
                     id: booking.User.id,
@@ -521,16 +493,11 @@ router.get('/:id/bookings', requireAuth, async (req, res) => {
                 formattedBooking.createdAt = booking.createdAt.toISOString();
                 formattedBooking.updatedAt = booking.updatedAt.toISOString();
             }
-
             return formattedBooking;
         });
-
-        // Construct the response based on owner status
         const responseBody = isOwner
             ? { Bookings: formattedBookings }
             : { Bookings: formattedBookings.map((booking) => ({ spotId: booking.spotId, startDate: booking.startDate, endDate: booking.endDate })) };
-
-        // Sending the response
         res.status(200).json(responseBody);
     } catch (error) {
         console.error(error);
