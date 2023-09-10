@@ -9,18 +9,40 @@ const { route } = require('./spots');
 // GET ALL SPOTS -----------------------------------------------------------------------------------------------------------
 
 router.get('/', async (req, res) => {
-    const getSpots = await Spot.findAll({
-        include: [
-            {
-                model: SpotImage
-            },
-            {
-                model: Review
-            }
-        ]
-    })
-    res.json(getSpots)
-})
+    try {
+        const spots = await Spot.findAll({
+            include: [
+                {
+                    model: SpotImage,
+                },
+                {
+                    model: Review,
+                },
+            ],
+        });
+        const formattedSpots = spots.map((spot) => ({
+            id: spot.id,
+            ownerId: spot.ownerId,
+            address: spot.address,
+            city: spot.city,
+            state: spot.state,
+            country: spot.country,
+            lat: spot.lat,
+            lng: spot.lng,
+            name: spot.name,
+            description: spot.description,
+            price: spot.price,
+            createdAt: spot.createdAt,
+            updatedAt: spot.updatedAt,
+            previewImage: spot.previewImage,
+            avgRating: spot.avgRating,
+        }));
+        res.status(200).json(formattedSpots);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
 
 // CREATE NEW SPOT -----------------------------------------------------------------------------------------------------------
 
