@@ -145,37 +145,34 @@ router.get('/current', requireAuth, async (req, res) => {
 
 router.get('/:id', requireAuth, async (req, res) => {
     try {
-        // grabs the spotId from req.params
         const spotId = req.params.id;
-
-        // finds the spot by the ID
+        // looking for spot by id handler
         const spot = await Spot.findOne({
             where: { id: spotId },
+        });
+        if (!spot) {
+            return res.status(404).json({ message: 'Spot not found' });
+        }
+        // find spot image
+        const spotImages = await SpotImage.findAll({
+            where: { spotId },
+            attributes: ['id', 'url', 'preview'],
+        });
+        // find them reviews
+        const reviews = await Review.findAll({
+            where: { spotId },
+            attributes: ['review', 'stars', 'createdAt', 'updatedAt'],
             include: [
-                {
-                    model: SpotImage,
-                    attributes: ['id', 'url', 'preview'],
-                },
                 {
                     model: User,
                     attributes: ['id', 'firstName', 'lastName'],
                 },
-                {
-                    model: Review,
-                    attributes: [
-                        [sequelize.fn('COUNT', sequelize.col('*')), 'numReviews'],
-                        [sequelize.fn('AVG', sequelize.col('avgRating')), 'avgStarRating'],
-                    ],
-                },
             ],
         });
-
-        // checking if the spot exists, if not, error 404 please
-        if (!spot) {
-            return res.status(404).json({ message: 'Spot not found' });
-        }
-
-        // just constructing the required response
+        // calculating reviews and stars, wow ternarys
+        const numReviews = reviews.length;
+        const totalStars = reviews.reduce((sum, review) => sum + review.stars, 0);
+        const avgStarRating = numReviews > 0 ? totalStars / numReviews : 0;
         const response = {
             id: spot.id,
             ownerId: spot.ownerId,
@@ -190,20 +187,18 @@ router.get('/:id', requireAuth, async (req, res) => {
             price: spot.price,
             createdAt: spot.createdAt,
             updatedAt: spot.updatedAt,
-            numReviews: spot.Reviews?.numReviews || 0,
-            avgStarRating: spot.Reviews?.avgStarRating || 0,
-            SpotImages: spot.SpotImages || [],
-            Owner: spot.Owner || {},
+            numReviews,
+            avgStarRating,
+            SpotImages: spotImages || [],
+            Reviews: reviews || [],
+            Owner: spot.User || [],
         };
-
-        // finally respond with the details of the asked for spot
         res.status(200).json(response);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: error });
+        res.status(500).json({ message: 'Error on Server Side' });
     }
 });
-
 
 // EDIT A SPOT -----------------------------------------------------------------------------------------------------------
 
@@ -294,49 +289,40 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
 router.post('/:id/reviews', requireAuth, async (req, res) => {
     try {
-        // Get spot id
+        // get spot id
         const spotId = req.params.id;
-
-        // Check if the spot with the spotId exists
+        // make sure it exists
         const spot = await Spot.findOne({
             where: { id: spotId },
         });
-
-        // Return 404 if spot doesn't exist
+        // error handler for if no spot is found
         if (!spot) {
             return res.status(404).json({ message: 'Spot not found in the database' });
         }
-
-        // Check if the user has already reviewed this spot before
+        // just making sure the user is not reviewing the same place again
         const existingReview = await Review.findOne({
             where: {
                 spotId: spot.id,
                 userId: req.user.id,
             }
         });
-
-        // If a review already exists, return a 403 error
+        // if the owner did already review, error 403
         if (existingReview) {
             return res.status(403).json({ message: 'This spot has already been reviewed by you' });
         }
-
-        // Get review and stars from the request body
+        // getting reviews and stars from req.body
         const { review, stars } = req.body;
-
-        // Ensure necessary inputs are not null
+        // make sure required fields are not empty
         if (!review || !stars) {
             return res.status(400).json({ message: 'Please provide both review and stars' });
         }
-
-        // Create a new review
+        // creating a new review
         const newReview = await Review.create({
             userId: req.user.id,
             spotId: spot.id,
             review,
             stars
         });
-
-        // Construct JSON response with new review info
         const response = {
             id: newReview.id,
             userId: newReview.userId,
@@ -346,8 +332,6 @@ router.post('/:id/reviews', requireAuth, async (req, res) => {
             createdAt: newReview.createdAt,
             updatedAt: newReview.updatedAt,
         };
-
-        // Respond with the newly created review
         res.status(201).json(response);
     } catch (error) {
         console.error(error);
